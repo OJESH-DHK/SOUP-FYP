@@ -1,5 +1,119 @@
+# Python virtual environments
 venv/
+ENV/
+env/
+.venv/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
 __pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Django stuff
+*.log
+local_settings.py
 db.sqlite3
+db.sqlite3-journal
+/media/
+staticfiles/
+# If you commit your app/static/ sources, remove the line above or
+# change it to /staticfiles/ if you use collectstatic to that directory.
+
+# Uploaded user files
+media/
+
+# Static files collected by Django
+/staticfiles/
+
+# Virtual environment artifacts
+.Pipfile.lock
+
+# Environment variables / secrets
 .env
-*.pycgit init
+.env.*
+secrets.json
+*.secret
+
+# IDEs, editors, and tooling
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Node
+node_modules/
+
+# Mypy, pyre, and caches
+.mypy_cache/
+.pyre/
+__pycache__/
+
+# Coverage and reports
+coverage.xml
+htmlcov/
+
+# Build directories
+build/
+dist/
+
+# Misc
+*.log
+*.pot
+.pip-wheel-metadata/
+
+# Bytecode
+*.pyc
+
+# Keep this file and adjust lines above depending on whether you commit
+# static, media, or other generated files.
