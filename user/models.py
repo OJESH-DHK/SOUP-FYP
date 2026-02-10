@@ -52,6 +52,7 @@ class UserProfile(CommonModel):
     activity = models.CharField(max_length=20, choices=ACTIVITY_CHOICES)
     diet = models.CharField(max_length=20, choices=DIET_CHOICES)
     spicy_pref = models.CharField(max_length=20, choices=SPICY_CHOICES)
+    daily_calorie_goal = models.FloatField(null=True, blank=True)
 
 
 

@@ -4,7 +4,7 @@ from .models import UserProfile
 from .utils import calculate_daily_calories
 
 class SignupSerializer(serializers.ModelSerializer):
-    # Profile fields needed for calculation
+    # These fields are for the UserProfile calculation logic
     age = serializers.IntegerField(write_only=True)
     height_cm = serializers.FloatField(write_only=True)
     weight_kg = serializers.FloatField(write_only=True)
@@ -22,7 +22,7 @@ class SignupSerializer(serializers.ModelSerializer):
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
-        # 1. Pop out the profile data
+        # 1. Separate profile data from user data
         profile_data = {
             'age': validated_data.pop('age'),
             'height_cm': validated_data.pop('height_cm'),
@@ -35,23 +35,30 @@ class SignupSerializer(serializers.ModelSerializer):
             'spicy_pref': validated_data.pop('spicy_pref'),
         }
 
-        # 2. Create the Auth User
+        # 2. Create the base Auth User
         user = User.objects.create_user(**validated_data)
 
         # 3. Calculate BMI
         bmi = round(profile_data['weight_kg'] / ((profile_data['height_cm'] / 100) ** 2), 1)
 
-        # 4. Create Profile (Assuming your model uses user_id as a field or OneToOne)
+        # 4. Create the UserProfile
         profile = UserProfile.objects.create(
             user_id=user.username,
             bmi=bmi,
             **profile_data
         )
 
-        # 5. Calculate Calorie Goal using the util we made
+        # 5. Run your math logic from utils.py and save it
         profile.daily_calorie_goal = calculate_daily_calories(profile)
         profile.save()
 
-        # Link profile to user for easy access in views
-        user.user_profile = profile 
         return user
+    
+from rest_framework import serializers
+from .models import UserProfile
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        # This returns every field defined in your models.py
+        fields = '__all__'
