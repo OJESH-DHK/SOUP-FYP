@@ -1,10 +1,9 @@
 from django.urls import path
-#from .views import FoodRecommendationView, FoodSelectionView
-from .views import FoodRecommendationView, FoodEatView, DailySummaryView
+from .views import HomeScreenView, FoodEatView, FoodSearchView,AnalyticsView
 
 urlpatterns = [
-    path('recommendations/', FoodRecommendationView.as_view(), name='recommendations'),
-    #path('select/', FoodSelectionView.as_view(), name='select-food'),
+    path('home/', HomeScreenView.as_view(), name='home-screen'),
     path('eat/', FoodEatView.as_view(), name='eat-food'),
-    path('summary/', DailySummaryView.as_view(), name='daily-summary'),
+    path('search/', FoodSearchView.as_view(), name='food-search'),
+    path('analytics/', AnalyticsView.as_view(), name='analytics'),
 ]

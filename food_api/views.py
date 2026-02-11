@@ -1,83 +1,133 @@
+from datetime import datetime
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from django.db.models import Sum
 from .models import Food
-from user.models import UserProfile
 from meal_interaction.models import MealInteraction
-from .serializers import FoodEatSerializer, MealLogSerializer
+from .serializers import FoodSummarySerializer, FoodEatSerializer, MealHistorySerializer
 
-class FoodRecommendationView(APIView):
+class HomeScreenView(APIView):
     permission_classes = [IsAuthenticated]
+
+    def get_current_meal_type(self):
+        hour = datetime.now().hour
+        if 5 <= hour < 11: return "breakfast"
+        elif 11 <= hour < 17: return "lunch"
+        elif 17 <= hour < 23: return "dinner"
+        else: return "snack"
+
     def get(self, request):
-        user_id = request.query_params.get('user_id')
-        meal_type = request.query_params.get('meal_type', 'breakfast').lower()
-        try:
-            profile = UserProfile.objects.get(user_id=user_id)
-        except UserProfile.DoesNotExist:
-            return Response({"error": "User not found"}, status=404)
-        daily_target = getattr(profile, 'daily_calorie_goal', 2000)
-        split_map = {"breakfast": 0.3, "lunch": 0.4, "dinner": 0.3, "snack": 0.1}
-        target_cal = daily_target * split_map.get(meal_type, 0.3)
-        candidates = Food.objects.filter(
-            meal_type=meal_type,
-            calories_kcal__range=(target_cal * 0.85, target_cal * 1.15)
-        )
-        if candidates.count() < 3:
-            candidates = Food.objects.filter(meal_type=meal_type)
-        sorted_foods = sorted(candidates, key=lambda x: abs(x.calories_kcal - target_cal))[:3]
-        interaction, _ = MealInteraction.objects.update_or_create(
-            user=profile, day=1, meal_type=meal_type,
-            defaults={
-                'target_cal': target_cal,
-                'food_1': sorted_foods[0] if len(sorted_foods) > 0 else None,
-                'food_2': sorted_foods[1] if len(sorted_foods) > 1 else None,
-                'food_3': sorted_foods[2] if len(sorted_foods) > 2 else None,
-            }
-        )
+        profile = request.user.profile
+        # Get selected tab from URL (e.g., ?type=snack), default to current time
+        requested_type = request.query_params.get('type', self.get_current_meal_type()).lower()
+        
+        # 1. Calculate Daily Progress
+        interactions = MealInteraction.objects.filter(
+            user=profile, day=1
+        ).exclude(chosen_food__isnull=True)
+        
+        total_eaten = interactions.aggregate(total=Sum('chosen_food__calories_kcal'))['total'] or 0
+        daily_target = profile.daily_calorie_goal or 2000
+        
+        # 2. Get Suggestions for the selected tab
+        suggestions = Food.objects.filter(meal_type=requested_type).order_by('?')[:4]
+        
+        # 3. Get History (What the user already ate today)
+        history = MealInteraction.objects.filter(user=profile, day=1).exclude(chosen_food__isnull=True)
+
         return Response({
-            "user_id": user_id,
-            "meal_type": meal_type,
-            "meal_target": round(target_cal, 1),
-            "recommendations": [{"food_id": f.food_id, "name": f.name, "kcal": f.calories_kcal} for f in sorted_foods]
+            "daily_progress": {
+                "consumed": round(total_eaten, 0),
+                "goal": round(daily_target, 0),
+                "remaining": round(max(0, daily_target - total_eaten), 0),
+                "percentage": round((total_eaten / daily_target) * 100, 1) if daily_target > 0 else 0
+            },
+            "selected_meal": {
+                "label": requested_type.capitalize(),
+                "active_now": self.get_current_meal_type(),
+                "is_viewing_current": requested_type == self.get_current_meal_type(),
+                "suggestions": FoodSummarySerializer(suggestions, many=True).data
+            },
+            "meal_history": MealHistorySerializer(history, many=True).data
         })
 
 class FoodEatView(APIView):
     permission_classes = [IsAuthenticated]
+
     def post(self, request):
         serializer = FoodEatSerializer(data=request.data)
         if serializer.is_valid():
             data = serializer.validated_data
+            profile = request.user.profile
+            
             try:
-                interaction = MealInteraction.objects.get(
-                    user__user_id=data['user_id'],
-                    day=data['day'],
-                    meal_type=data['meal_type'].lower()
-                )
                 food_item = Food.objects.get(food_id=data['food_id'])
+                
+                # FIX: Provide target_cal from profile to satisfy the Database constraint
+                interaction, created = MealInteraction.objects.get_or_create(
+                    user=profile,
+                    day=data.get('day', 1),
+                    meal_type=data['meal_type'].lower(),
+                    defaults={'target_cal': profile.daily_calorie_goal or 2000}
+                )
+                
+                # Update the food choice
                 interaction.chosen_food = food_item
                 interaction.save()
-                return Response({"status": "success", "message": f"Logged {food_item.name}"})
-            except (MealInteraction.DoesNotExist, Food.DoesNotExist):
-                return Response({"error": "Interaction or Food not found"}, status=404)
+                
+                return Response({
+                    "status": "success", 
+                    "message": f"Logged {food_item.name}",
+                    "consumed_now": food_item.calories_kcal
+                })
+            except Food.DoesNotExist:
+                return Response({"error": "Food ID not found"}, status=404)
         return Response(serializer.errors, status=400)
 
-class DailySummaryView(APIView):
+class FoodSearchView(APIView):
     permission_classes = [IsAuthenticated]
+
     def get(self, request):
-        user_id = request.query_params.get('user_id')
-        day = request.query_params.get('day', 1)
-        try:
-            profile = UserProfile.objects.get(user_id=user_id)
-            interactions = MealInteraction.objects.filter(user=profile, day=day).exclude(chosen_food__isnull=True)
-            total_eaten = sum(item.chosen_food.calories_kcal for item in interactions)
-            logged_meals = MealLogSerializer(interactions, many=True).data
-            return Response({
-                "user_id": user_id,
-                "daily_goal": profile.daily_calorie_goal,
-                "total_eaten": round(total_eaten, 1),
-                "remaining": round(profile.daily_calorie_goal - total_eaten, 1),
-                "history": logged_meals
-            })
-        except UserProfile.DoesNotExist:
-            return Response({"error": "User not found"}, status=404)
+        query = request.query_params.get('q', '')
+        if not query:
+            return Response({"results": []})
+        
+        # Search by name or category
+        foods = Food.objects.filter(
+            Q(name__icontains=query) | Q(category__icontains=query)
+        )[:15] 
+        
+        serializer = FoodSummarySerializer(foods, many=True)
+        return Response({
+            "query": query,
+            "results": serializer.data
+        })
+from django.utils import timezone
+from datetime import timedelta
+
+class AnalyticsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        profile = request.user.profile
+        # Get period from URL: /analytics/?period=weekly or ?period=monthly
+        period = request.query_params.get('period', 'weekly')
+        
+        days_back = 7 if period == 'weekly' else 30
+        start_date = timezone.now() - timedelta(days=days_back)
+
+        # Filter interactions over the time period
+        # Note: This assumes you add a 'created_at' field to your MealInteraction model
+        history = MealInteraction.objects.filter(
+            user=profile, 
+            created_at__gte=start_date
+        ).values('created_at__date').annotate(
+            total_calories=Sum('chosen_food__calories_kcal')
+        ).order_by('created_at__date')
+
+        return Response({
+            "period": period,
+            "goal": profile.daily_calorie_goal,
+            "data": list(history)
+        })
