@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-# Import the choices from models
 from .models import (
     UserProfile, GENDER_CHOICES, BODY_CHOICES, 
     GOAL_CHOICES, ACTIVITY_CHOICES, DIET_CHOICES, SPICY_CHOICES
@@ -20,6 +19,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
 
 class SignupSerializer(serializers.ModelSerializer):
+    # Profile fields defined as write_only so they are accepted in the POST request
     age = serializers.IntegerField(write_only=True)
     height_cm = serializers.FloatField(write_only=True)
     weight_kg = serializers.FloatField(write_only=True)
@@ -32,21 +32,35 @@ class SignupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'password', 'email', 'age', 'height_cm', 'weight_kg', 
-                  'gender', 'body_type', 'goal', 'activity', 'diet', 'spicy_pref']
+        fields = [
+            'username', 'password', 'email', 'age', 'height_cm', 'weight_kg', 
+            'gender', 'body_type', 'goal', 'activity', 'diet', 'spicy_pref'
+        ]
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
+        # Extract profile fields so they aren't passed to User.objects.create_user
         profile_fields = [
             'age', 'height_cm', 'weight_kg', 'gender', 
             'body_type', 'goal', 'activity', 'diet', 'spicy_pref'
         ]
         profile_data = {field: validated_data.pop(field) for field in profile_fields}
 
+        # 1. Create the User instance
         user = User.objects.create_user(**validated_data)
-        bmi = round(profile_data['weight_kg'] / ((profile_data['height_cm'] / 100) ** 2), 1)
+        
+        # 2. Calculate BMI
+        h_meters = profile_data['height_cm'] / 100
+        bmi_val = round(profile_data['weight_kg'] / (h_meters ** 2), 1)
 
-        profile = UserProfile.objects.create(user=user, bmi=bmi, **profile_data)
+        # 3. Create the UserProfile linked to this user
+        profile = UserProfile.objects.create(
+            user=user, 
+            bmi=bmi_val, 
+            **profile_data
+        )
+        
+        # 4. Calculate and save initial calorie goal
         profile.daily_calorie_goal = calculate_daily_calories(profile)
         profile.save()
 

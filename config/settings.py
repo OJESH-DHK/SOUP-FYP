@@ -25,9 +25,12 @@ SECRET_KEY = 'django-insecure-txr1#8$dkjuh4*!!_6ls2m11ya#5hzbgfnf129qm%)1fg6wg41
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
-
+ALLOWED_HOSTS = [
+    'perceptibly-triacid-tameka.ngrok-free.dev', 
+    '127.0.0.1', 
+    'localhost', 
+    '*'
+]
 # Application definition
 
 INSTALLED_APPS = [
@@ -40,6 +43,7 @@ INSTALLED_APPS = [
     #Third party apps
     'rest_framework',
     'rest_framework_simplejwt',
+    'django_rest_passwordreset',
 
     #Local apps
     'core',
@@ -68,23 +72,28 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+CSRF_TRUSTED_ORIGINS = [
+    'https://perceptibly-triacid-tameka.ngrok-free.dev'
+]
 
 ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # Keep your DIRS as they were
+        'DIRS': [BASE_DIR / 'templates'], 
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',  # Added back (Fixes W411)
+                'django.contrib.auth.context_processors.auth', # Added back (Fixes E402)
+                'django.contrib.messages.context_processors.messages', # Added back (Fixes E404)
             ],
         },
     },
-]
+] 
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
@@ -135,3 +144,20 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# settings.py
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'ssspppaaammmaaaccc@gmail.com'
+EMAIL_HOST_PASSWORD = 'tfos mlxi dqyg mxdn'
+DEFAULT_FROM_EMAIL = 'SOUP-FYP <ssspppaaammmaaaccc@gmail.com>'
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
