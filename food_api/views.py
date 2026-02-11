@@ -6,6 +6,8 @@ from django.db.models import Sum
 from .models import Food
 from meal_interaction.models import MealInteraction
 from .serializers import FoodSummarySerializer, FoodEatSerializer, MealHistorySerializer
+from .ml_ranker import rank_foods_for_user
+import random
 
 class HomeScreenView(APIView):
     permission_classes = [IsAuthenticated]
@@ -30,8 +32,30 @@ class HomeScreenView(APIView):
         total_eaten = interactions.aggregate(total=Sum('chosen_food__calories_kcal'))['total'] or 0
         daily_target = profile.daily_calorie_goal or 2000
         
-        # 2. Get Suggestions for the selected tab
-        suggestions = Food.objects.filter(meal_type=requested_type).order_by('?')[:4]
+        candidates = list(
+            Food.objects.filter(meal_type=requested_type)
+                .exclude(calories_kcal__lt=50)  # optional: avoid condiments issue
+                .only("id", "meal_type", "calories_kcal")  # include fields used for ML
+                [:800]  # limit candidates
+        )
+
+        # 3) Rank candidates using ML, then pick top 4
+        ranked = rank_foods_for_user(profile, requested_type, candidates)
+        # 4) Take top 30, then random 4 from those
+        TOP_K = 30
+        PICK_N = 4
+
+        top_k_ids = [fid for fid, _ in ranked[:TOP_K]]
+        picked_ids = random.sample(top_k_ids, k=min(PICK_N, len(top_k_ids)))
+
+        # 5) Keep the display order consistent with ML ranking (optional but nice)
+        picked_set = set(picked_ids)
+        picked_ids = [fid for fid, _ in ranked if fid in picked_set][:PICK_N]
+
+        # 6) Map ids -> objects (no extra DB query)
+        food_map = {f.id: f for f in candidates}
+        suggestions = [food_map[i] for i in picked_ids if i in food_map]
+
         
         # 3. Get History (What the user already ate today)
         history = MealInteraction.objects.filter(user=profile, day=1).exclude(chosen_food__isnull=True)
