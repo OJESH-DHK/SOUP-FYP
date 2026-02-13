@@ -50,16 +50,18 @@ class MealInteraction(CommonModel):
 
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["user", "day", "meal_type"],
-                name="unique_user_day_meal"
-            )
-        ]
-        indexes = [
-            models.Index(fields=["user", "day"]),
-            models.Index(fields=["meal_type", "day"]),
-        ]
+        pass
 
-    def __str__(self):
-        return f"{self.user.user_id} day {self.day} {self.meal_type}"
+        #constraints = [
+            #models.UniqueConstraint(
+                #fields=["user", "day", "meal_type"],
+                #name="unique_user_day_meal"
+            #)
+        #]
+        #indexes = [
+            #models.Index(fields=["user", "day"]),
+            #models.Index(fields=["meal_type", "day"]),
+        #]
+
+    #def __str__(self):
+        #return f"{self.user.user_id} day {self.day} {self.meal_type}"

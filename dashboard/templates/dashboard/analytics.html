@@ -1,0 +1,356 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Analytics - SOUP Admin{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <h1>Advanced Analytics</h1>
+    <p class="page-subtitle">Deep insights into user behavior and platform performance</p>
+</div>
+
+<!-- Meal Pattern Analysis -->
+<div class="card animate-in">
+    <div class="card-header">
+        <h3 class="card-title">Meal Pattern Analysis</h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Meal Type</th>
+                    <th>Total Selections</th>
+                    <th>Average Calories</th>
+                    <th>Popularity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pattern in meal_patterns %}
+                <tr>
+                    <td>
+                        {% if pattern.meal_type == 'breakfast' %}
+                            <span class="badge badge-primary">Breakfast</span>
+                        {% elif pattern.meal_type == 'lunch' %}
+                            <span class="badge badge-success">Lunch</span>
+                        {% elif pattern.meal_type == 'dinner' %}
+                            <span class="badge badge-accent">Dinner</span>
+                        {% else %}
+                            <span class="badge badge-warning">Snack</span>
+                        {% endif %}
+                    </td>
+                    <td><strong>{{ pattern.count }}</strong> selections</td>
+                    <td>{{ pattern.avg_calories|floatformat:0 }} kcal</td>
+                    <td>
+                        <div style="background: var(--color-surface-hover); border-radius: 10px; height: 8px; overflow: hidden; position: relative;">
+                            <div style="background: var(--color-primary); height: 100%; width: {% widthratio pattern.count 100 100 %}%;"></div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 2rem; margin-top: 2rem;">
+    <!-- Meal Pattern Distribution -->
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">Meal Selection Distribution</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="mealPatternChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Average Calories by Meal -->
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">Average Calories by Meal Type</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="avgCaloriesChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Body Type Analysis -->
+<div class="card animate-in" style="margin-top: 2rem;">
+    <div class="card-header">
+        <h3 class="card-title">Body Type Analysis</h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Body Type</th>
+                    <th>User Count</th>
+                    <th>Average BMI</th>
+                    <th>Avg Calorie Goal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for body in body_type_dist %}
+                <tr>
+                    <td><span class="badge badge-secondary">{{ body.body_type }}</span></td>
+                    <td><strong>{{ body.count }}</strong> users</td>
+                    <td>{{ body.avg_bmi|floatformat:1 }}</td>
+                    <td>{{ body.avg_calorie_goal|floatformat:0 }} kcal</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Goal vs Activity Matrix -->
+<div class="card animate-in" style="margin-top: 2rem;">
+    <div class="card-header">
+        <h3 class="card-title">Goal vs Activity Level Matrix</h3>
+        <p style="color: var(--color-text-dim); font-size: 0.9rem; margin-top: 0.5rem;">
+            Understanding how user goals align with their activity levels
+        </p>
+    </div>
+    <div class="chart-container">
+        <canvas id="goalActivityChart"></canvas>
+    </div>
+</div>
+
+<!-- Top Performers -->
+<div class="card animate-in" style="margin-top: 2rem;">
+    <div class="card-header">
+        <h3 class="card-title">Top Performing Users (Goal Adherence)</h3>
+        <p style="color: var(--color-text-dim); font-size: 0.9rem; margin-top: 0.5rem;">
+            Users closest to their weekly calorie goals (100% = perfect adherence)
+        </p>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Username</th>
+                    <th>Week Calories</th>
+                    <th>Goal Calories</th>
+                    <th>Adherence %</th>
+                    <th>Performance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for performer in user_performance %}
+                <tr>
+                    <td>
+                        <strong style="color: var(--color-primary);">#{{ forloop.counter }}</strong>
+                    </td>
+                    <td><strong>{{ performer.username }}</strong></td>
+                    <td>{{ performer.week_calories|floatformat:0 }} kcal</td>
+                    <td>{{ performer.goal_calories|floatformat:0 }} kcal</td>
+                    <td>
+                        <strong style="{% if performer.adherence >= 90 and performer.adherence <= 110 %}color: var(--color-success){% elif performer.adherence >= 80 and performer.adherence <= 120 %}color: var(--color-warning){% else %}color: var(--color-danger){% endif %}">
+                            {{ performer.adherence|floatformat:1 }}%
+                        </strong>
+                    </td>
+                    <td>
+                        {% if performer.adherence >= 95 and performer.adherence <= 105 %}
+                            <span class="badge badge-success">Excellent</span>
+                        {% elif performer.adherence >= 85 and performer.adherence <= 115 %}
+                            <span class="badge badge-primary">Good</span>
+                        {% elif performer.adherence >= 75 and performer.adherence <= 125 %}
+                            <span class="badge badge-warning">Fair</span>
+                        {% else %}
+                            <span class="badge badge-danger">Needs Attention</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--color-text-dim);">
+                        No user performance data available
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Key Insights Summary -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 2rem;">
+    <div class="card animate-in" style="background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(167, 139, 250, 0.1));">
+        <h4 style="color: var(--color-primary); margin-bottom: 1rem;">💡 Key Insight #1</h4>
+        <p style="color: var(--color-text-dim); line-height: 1.8;">
+            {% with total_interactions=meal_patterns|length %}
+            Most users prefer <strong style="color: var(--color-text);">{{ meal_patterns.0.meal_type }}</strong> selections, 
+            indicating this is the most tracked meal type on the platform.
+            {% endwith %}
+        </p>
+    </div>
+    
+    <div class="card animate-in" style="background: linear-gradient(135deg, rgba(74, 222, 128, 0.1), rgba(251, 147, 60, 0.1));">
+        <h4 style="color: var(--color-success); margin-bottom: 1rem;">📊 Key Insight #2</h4>
+        <p style="color: var(--color-text-dim); line-height: 1.8;">
+            The average meal contains approximately 
+            <strong style="color: var(--color-text);">{{ meal_patterns.0.avg_calories|floatformat:0 }} calories</strong>, 
+            which aligns well with standard dietary recommendations.
+        </p>
+    </div>
+    
+    <div class="card animate-in" style="background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(248, 113, 113, 0.1));">
+        <h4 style="color: var(--color-accent); margin-bottom: 1rem;">🎯 Key Insight #3</h4>
+        <p style="color: var(--color-text-dim); line-height: 1.8;">
+            Body type distribution shows <strong style="color: var(--color-text);">{{ body_type_dist.0.body_type }}</strong> 
+            as the most common, with an average BMI of <strong style="color: var(--color-text);">{{ body_type_dist.0.avg_bmi|floatformat:1 }}</strong>.
+        </p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Meal Pattern Distribution Chart
+    const mealPatterns = {{ meal_patterns|safe }};
+    const patternCtx = document.getElementById('mealPatternChart').getContext('2d');
+    
+    new Chart(patternCtx, {
+        type: 'doughnut',
+        data: {
+            labels: mealPatterns.map(p => p.meal_type.charAt(0).toUpperCase() + p.meal_type.slice(1)),
+            datasets: [{
+                data: mealPatterns.map(p => p.count),
+                backgroundColor: ['#22d3ee', '#4ade80', '#fb923c', '#fbbf24'],
+                borderColor: '#0a0e14',
+                borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 20, font: { size: 14 } }
+                },
+                tooltip: {
+                    backgroundColor: '#151b23',
+                    borderColor: '#2d3748',
+                    borderWidth: 1,
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Average Calories Chart
+    const avgCalCtx = document.getElementById('avgCaloriesChart').getContext('2d');
+    
+    new Chart(avgCalCtx, {
+        type: 'bar',
+        data: {
+            labels: mealPatterns.map(p => p.meal_type.charAt(0).toUpperCase() + p.meal_type.slice(1)),
+            datasets: [{
+                label: 'Average Calories',
+                data: mealPatterns.map(p => p.avg_calories.toFixed(0)),
+                backgroundColor: ['rgba(34, 211, 238, 0.7)', 'rgba(74, 222, 128, 0.7)', 'rgba(251, 147, 60, 0.7)', 'rgba(251, 191, 36, 0.7)'],
+                borderColor: ['#22d3ee', '#4ade80', '#fb923c', '#fbbf24'],
+                borderWidth: 2,
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#151b23',
+                    borderColor: '#2d3748',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(45, 55, 72, 0.5)' },
+                    ticks: {
+                        callback: function(value) {
+                            return value + ' kcal';
+                        }
+                    }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+    
+    // Goal vs Activity Matrix Chart
+    const goalActivityData = {{ goal_activity_matrix|safe }};
+    
+    // Prepare data for grouped bar chart
+    const goals = ['loss', 'maintain', 'gain'];
+    const activities = ['low', 'moderate', 'high'];
+    
+    const datasets = activities.map((activity, idx) => {
+        const colors = ['#22d3ee', '#a78bfa', '#fb923c'];
+        return {
+            label: activity.charAt(0).toUpperCase() + activity.slice(1),
+            data: goals.map(goal => {
+                const match = goalActivityData.find(d => d.goal === goal && d.activity === activity);
+                return match ? match.count : 0;
+            }),
+            backgroundColor: colors[idx] + 'b3',
+            borderColor: colors[idx],
+            borderWidth: 2,
+            borderRadius: 6
+        };
+    });
+    
+    const goalActivityCtx = document.getElementById('goalActivityChart').getContext('2d');
+    
+    new Chart(goalActivityCtx, {
+        type: 'bar',
+        data: {
+            labels: goals.map(g => g.charAt(0).toUpperCase() + g.slice(1)),
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 20, font: { size: 14 } }
+                },
+                tooltip: {
+                    backgroundColor: '#151b23',
+                    borderColor: '#2d3748',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(45, 55, 72, 0.5)' },
+                    ticks: {
+                        stepSize: 1
+                    }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

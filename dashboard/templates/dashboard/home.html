@@ -1,0 +1,377 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Dashboard - SOUP Admin{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <h1>Dashboard Overview</h1>
+    <p class="page-subtitle">Real-time insights into your nutrition tracking platform</p>
+</div>
+
+<!-- Key Metrics -->
+<div class="stats-grid">
+    <div class="stat-card animate-in animate-delay-1" style="--stat-color: var(--color-primary)">
+        <div class="stat-label">Total Users</div>
+        <div class="stat-value">{{ total_users }}</div>
+        <div class="stat-change">+{{ new_users_week }} this week</div>
+    </div>
+    
+    <div class="stat-card animate-in animate-delay-2" style="--stat-color: var(--color-secondary)">
+        <div class="stat-label">Total Meals Logged</div>
+        <div class="stat-value">{{ total_interactions }}</div>
+        <div class="stat-change">{{ interactions_today }} today</div>
+    </div>
+    
+    <div class="stat-card animate-in animate-delay-3" style="--stat-color: var(--color-accent)">
+        <div class="stat-label">Food Database</div>
+        <div class="stat-value">{{ total_foods }}</div>
+        <div class="stat-change">Available items</div>
+    </div>
+    
+    <div class="stat-card animate-in animate-delay-4" style="--stat-color: var(--color-success)">
+        <div class="stat-label">Avg Calorie Goal</div>
+        <div class="stat-value">{{ avg_calorie_goal }}</div>
+        <div class="stat-change">kcal/day</div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
+    <!-- Daily Activity Chart -->
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">Daily Meal Logging Activity</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="activityChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- User Growth Chart -->
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">User Growth (30 Days)</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="growthChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Demographics Row -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
+    <!-- Gender Distribution -->
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">Gender Distribution</h3>
+        </div>
+        <div class="chart-container" style="height: 300px;">
+            <canvas id="genderChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Goal Distribution -->
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">User Goals</h3>
+        </div>
+        <div class="chart-container" style="height: 300px;">
+            <canvas id="goalChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Meal Type Distribution -->
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">Foods by Meal Type</h3>
+        </div>
+        <div class="chart-container" style="height: 300px;">
+            <canvas id="mealTypeChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Popular Foods Table -->
+<div class="card animate-in">
+    <div class="card-header">
+        <h3 class="card-title">Most Popular Foods</h3>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Food Name</th>
+                    <th>Meal Type</th>
+                    <th>Calories</th>
+                    <th>Times Chosen</th>
+                    <th>Protein</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for food in popular_foods %}
+                <tr>
+                    <td><strong>#{{ forloop.counter }}</strong></td>
+                    <td>{{ food.name }}</td>
+                    <td><span class="badge badge-primary">{{ food.meal_type }}</span></td>
+                    <td>{{ food.calories_kcal|floatformat:0 }} kcal</td>
+                    <td><span class="badge badge-success">{{ food.interaction_count }}×</span></td>
+                    <td>{{ food.protein_g|floatformat:1 }}g</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Quick Stats Grid -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+    <div class="card animate-in">
+        <h4 style="margin-bottom: 1rem; color: var(--color-primary);">User Averages</h4>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div>
+                <div class="stat-label">Average Age</div>
+                <div style="font-size: 1.5rem; font-weight: 700;">{{ avg_age }} years</div>
+            </div>
+            <div>
+                <div class="stat-label">Average BMI</div>
+                <div style="font-size: 1.5rem; font-weight: 700;">{{ avg_bmi }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card animate-in">
+        <h4 style="margin-bottom: 1rem; color: var(--color-secondary);">Activity Breakdown</h4>
+        {% for activity in activity_distribution %}
+        <div style="margin-bottom: 0.75rem;">
+            <span class="badge badge-secondary">{{ activity.activity }}</span>
+            <span style="margin-left: 0.5rem; color: var(--color-text-dim);">{{ activity.count }} users</span>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="card animate-in">
+        <h4 style="margin-bottom: 1rem; color: var(--color-accent);">Diet Preferences</h4>
+        {% for diet in diet_distribution %}
+        <div style="margin-bottom: 0.75rem;">
+            <span class="badge badge-warning">{{ diet.diet }}</span>
+            <span style="margin-left: 0.5rem; color: var(--color-text-dim);">{{ diet.count }} users</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Chart.js default configuration
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = '#2d3748';
+    Chart.defaults.font.family = "'Crimson Pro', serif";
+    
+    // Daily Activity Chart
+    const activityCtx = document.getElementById('activityChart').getContext('2d');
+    new Chart(activityCtx, {
+        type: 'line',
+        data: {
+            labels: {{ daily_activity|safe }}.map(d => {
+                const date = new Date(d.date);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            }),
+            datasets: [{
+                label: 'Meals Logged',
+                data: {{ daily_activity|safe }}.map(d => d.count),
+                borderColor: '#22d3ee',
+                backgroundColor: 'rgba(34, 211, 238, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#22d3ee',
+                pointBorderColor: '#0a0e14',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#151b23',
+                    borderColor: '#2d3748',
+                    borderWidth: 1,
+                    padding: 12,
+                    titleColor: '#22d3ee',
+                    bodyColor: '#e2e8f0'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(45, 55, 72, 0.5)' }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+    
+    // User Growth Chart
+    const growthCtx = document.getElementById('growthChart').getContext('2d');
+    new Chart(growthCtx, {
+        type: 'line',
+        data: {
+            labels: {{ user_growth|safe }}.map(d => {
+                const date = new Date(d.date);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            }),
+            datasets: [{
+                label: 'Total Users',
+                data: {{ user_growth|safe }}.map(d => d.count),
+                borderColor: '#a78bfa',
+                backgroundColor: 'rgba(167, 139, 250, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#a78bfa',
+                pointBorderColor: '#0a0e14',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#151b23',
+                    borderColor: '#2d3748',
+                    borderWidth: 1,
+                    padding: 12,
+                    titleColor: '#a78bfa',
+                    bodyColor: '#e2e8f0'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(45, 55, 72, 0.5)' }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+    
+    // Gender Distribution Chart
+    const genderData = {{ gender_distribution|safe }};
+    const genderCtx = document.getElementById('genderChart').getContext('2d');
+    new Chart(genderCtx, {
+        type: 'doughnut',
+        data: {
+            labels: genderData.map(d => d.gender ? d.gender.charAt(0).toUpperCase() + d.gender.slice(1) : 'Not Set'),
+            datasets: [{
+                data: genderData.map(d => d.count),
+                backgroundColor: ['#22d3ee', '#a78bfa', '#fb923c', '#4ade80'],
+                borderColor: '#0a0e14',
+                borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 20, font: { size: 14 } }
+                },
+                tooltip: {
+                    backgroundColor: '#151b23',
+                    borderColor: '#2d3748',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            }
+        }
+    });
+    
+    // Goal Distribution Chart
+    const goalData = {{ goal_distribution|safe }};
+    const goalCtx = document.getElementById('goalChart').getContext('2d');
+    new Chart(goalCtx, {
+        type: 'doughnut',
+        data: {
+            labels: goalData.map(d => d.goal.charAt(0).toUpperCase() + d.goal.slice(1)),
+            datasets: [{
+                data: goalData.map(d => d.count),
+                backgroundColor: ['#f87171', '#4ade80', '#fbbf24'],
+                borderColor: '#0a0e14',
+                borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 20, font: { size: 14 } }
+                },
+                tooltip: {
+                    backgroundColor: '#151b23',
+                    borderColor: '#2d3748',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            }
+        }
+    });
+    
+    // Meal Type Distribution Chart
+    const mealData = {{ foods_by_meal|safe }};
+    const mealCtx = document.getElementById('mealTypeChart').getContext('2d');
+    new Chart(mealCtx, {
+        type: 'bar',
+        data: {
+            labels: mealData.map(d => d.meal_type.charAt(0).toUpperCase() + d.meal_type.slice(1)),
+            datasets: [{
+                label: 'Food Items',
+                data: mealData.map(d => d.count),
+                backgroundColor: ['#22d3ee', '#a78bfa', '#fb923c', '#4ade80'],
+                borderColor: '#0a0e14',
+                borderWidth: 2,
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#151b23',
+                    borderColor: '#2d3748',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(45, 55, 72, 0.5)' }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

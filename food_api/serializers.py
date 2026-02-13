@@ -10,10 +10,12 @@ class FoodSummarySerializer(serializers.ModelSerializer):
 class MealHistorySerializer(serializers.ModelSerializer):
     food_name = serializers.ReadOnlyField(source='chosen_food.name')
     calories = serializers.ReadOnlyField(source='chosen_food.calories_kcal')
+    # This takes the timestamp from the database and makes it readable
+    date = serializers.DateTimeField(source='created_at', format="%Y-%m-%d %H:%M")
 
     class Meta:
         model = MealInteraction
-        fields = ['meal_type', 'food_name', 'calories']
+        fields = ['date', 'meal_type', 'food_name', 'calories']
 
 class FoodEatSerializer(serializers.Serializer):
     food_id = serializers.IntegerField()
@@ -29,12 +31,3 @@ class FoodSummarySerializer(serializers.ModelSerializer):
         model = Food
         fields = ['food_id', 'name', 'calories_kcal', 'protein_g', 'carbohydrates_g', 'fat_g', 'category']
 
-class MealHistorySerializer(serializers.ModelSerializer):
-    food_name = serializers.ReadOnlyField(source='chosen_food.name')
-    calories = serializers.ReadOnlyField(source='chosen_food.calories_kcal')
-    # Using the date from created_at (inherited from CommonModel)
-    date = serializers.DateTimeField(source='created_at', format="%Y-%m-%d")
-
-    class Meta:
-        model = MealInteraction
-        fields = ['meal_type', 'food_name', 'calories', 'date']

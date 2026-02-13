@@ -34,6 +34,7 @@ ALLOWED_HOSTS = [
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -50,6 +51,7 @@ INSTALLED_APPS = [
     'user',
     'food_api',
     'meal_interaction',
+    'dashboard',
 ]
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -133,6 +135,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
+USE_TZ = True
 TIME_ZONE = 'Asia/Kathmandu'
 
 USE_I18N = True
@@ -161,3 +164,26 @@ USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
+
+JAZZMIN_SETTINGS = {
+    "site_title": "SOUP-FYP Admin",
+    "site_header": "SOUP Nutrition",
+    "site_brand": "SOUP Admin",
+    "welcome_sign": "Welcome to the SOUP-FYP Management Portal",
+    "copyright": "SOUP FYP Ltd",
+    "search_model": ["user.UserProfile", "food_api.Food"],
+    "topmenu_links": [
+        {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"model": "user.UserProfile"},
+    ],
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "user.UserProfile": "fas fa-user",
+        "food_api.Food": "fas fa-utensils",
+        "meal_interaction.MealInteraction": "fas fa-history",
+    },
+    "order_with_respect_to": ["user", "food_api", "meal_interaction"],
+    "theme": "flatly", # Professional clean blue/white theme
+}

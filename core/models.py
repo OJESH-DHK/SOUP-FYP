@@ -15,7 +15,7 @@ class CommonModel(models.Model):
     )
 
     # 2. Audit Timestamps
-    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
     # 3. Soft Delete: Prevents accidental permanent data loss

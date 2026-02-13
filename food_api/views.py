@@ -1,4 +1,5 @@
 from datetime import datetime
+import profile
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -8,6 +9,7 @@ from meal_interaction.models import MealInteraction
 from .serializers import FoodSummarySerializer, FoodEatSerializer, MealHistorySerializer
 from .ml_ranker import rank_foods_for_user
 import random
+from django.db.models import Q
 
 class HomeScreenView(APIView):
     permission_classes = [IsAuthenticated]
@@ -23,10 +25,11 @@ class HomeScreenView(APIView):
         profile = request.user.profile
         # Get selected tab from URL (e.g., ?type=snack), default to current time
         requested_type = request.query_params.get('type', self.get_current_meal_type()).lower()
+        today = timezone.now().date()
         
         # 1. Calculate Daily Progress
         interactions = MealInteraction.objects.filter(
-            user=profile, day=1
+            user=profile, created_at__date=today
         ).exclude(chosen_food__isnull=True)
         
         total_eaten = interactions.aggregate(total=Sum('chosen_food__calories_kcal'))['total'] or 0
@@ -58,7 +61,8 @@ class HomeScreenView(APIView):
 
         
         # 3. Get History (What the user already ate today)
-        history = MealInteraction.objects.filter(user=profile, day=1).exclude(chosen_food__isnull=True)
+        # Removing 'day=1' gives him the full history
+        history = MealInteraction.objects.filter(user=profile).exclude(chosen_food__isnull=True).order_by('-created_at')
 
         return Response({
             "daily_progress": {
@@ -88,26 +92,23 @@ class FoodEatView(APIView):
             try:
                 food_item = Food.objects.get(food_id=data['food_id'])
                 
-                # FIX: Provide target_cal from profile to satisfy the Database constraint
-                interaction, created = MealInteraction.objects.get_or_create(
+                # FIX: Add 'day' back into the create call
+                interaction = MealInteraction.objects.create(
                     user=profile,
-                    day=data.get('day', 1),
+                    # We use the day from the payload, or default to 1 
+                    # so the Database constraint is satisfied.
+                    day=data.get('day', 1), 
                     meal_type=data['meal_type'].lower(),
-                    defaults={'target_cal': profile.daily_calorie_goal or 2000}
+                    chosen_food=food_item,
+                    target_cal=profile.daily_calorie_goal or 2000
                 )
-                
-                # Update the food choice
-                interaction.chosen_food = food_item
-                interaction.save()
                 
                 return Response({
                     "status": "success", 
-                    "message": f"Logged {food_item.name}",
-                    "consumed_now": food_item.calories_kcal
+                    "message": f"Logged {food_item.name}"
                 })
             except Food.DoesNotExist:
                 return Response({"error": "Food ID not found"}, status=404)
-        return Response(serializer.errors, status=400)
 
 class FoodSearchView(APIView):
     permission_classes = [IsAuthenticated]
@@ -135,23 +136,52 @@ class AnalyticsView(APIView):
 
     def get(self, request):
         profile = request.user.profile
-        # Get period from URL: /analytics/?period=weekly or ?period=monthly
         period = request.query_params.get('period', 'weekly')
         
         days_back = 7 if period == 'weekly' else 30
+        # Use timezone.now() to stay consistent with Django settings
         start_date = timezone.now() - timedelta(days=days_back)
 
-        # Filter interactions over the time period
-        # Note: This assumes you add a 'created_at' field to your MealInteraction model
-        history = MealInteraction.objects.filter(
-            user=profile, 
-            created_at__gte=start_date
-        ).values('created_at__date').annotate(
-            total_calories=Sum('chosen_food__calories_kcal')
-        ).order_by('created_at__date')
+        # 1. Filter: Only get interactions with food, for this user, in the time range
+        # 2. Values: Group by the DATE part of created_at
+        # 3. Annotate: Sum the calories for that group
+        history = (
+            MealInteraction.objects.filter(
+                user=profile, 
+                created_at__gte=start_date
+            )
+            .exclude(chosen_food__isnull=True)
+            .values('created_at__date') 
+            .annotate(total_calories=Sum('chosen_food__calories_kcal'))
+            .order_by('created_at__date')
+        )
+
+        # Format the data for the frontend (Pravakar will likely want strings for dates)
+        formatted_data = [
+            {
+                "date": entry['created_at__date'].strftime("%Y-%m-%d"),
+                "calories": round(entry['total_calories'], 0)
+            } 
+            for entry in history
+        ]
 
         return Response({
             "period": period,
             "goal": profile.daily_calorie_goal,
-            "data": list(history)
+            "data": formatted_data
+        })
+class MealLogListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Always filter by the user's profile to see THEIR food
+        profile = request.user.profile
+        history = MealInteraction.objects.filter(
+            user=profile
+        ).exclude(chosen_food__isnull=True).order_by('-created_at')
+        
+        serializer = MealHistorySerializer(history, many=True)
+        return Response({
+            "count": history.count(),
+            "logs": serializer.data  
         })

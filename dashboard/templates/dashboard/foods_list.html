@@ -1,0 +1,305 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Foods - SOUP Admin{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <h1>Food Database</h1>
+    <p class="page-subtitle">Manage all available food items in the system</p>
+</div>
+
+<!-- Food Stats -->
+<div class="stats-grid">
+    <div class="stat-card animate-in animate-delay-1" style="--stat-color: var(--color-primary)">
+        <div class="stat-label">Total Foods</div>
+        <div class="stat-value">{{ foods.count }}</div>
+        <div class="stat-change">Available items</div>
+    </div>
+    
+    <div class="stat-card animate-in animate-delay-2" style="--stat-color: var(--color-success)">
+        <div class="stat-label">Breakfast Items</div>
+        <div class="stat-value">{{ breakfast_count }}</div>
+    </div>
+    
+    <div class="stat-card animate-in animate-delay-3" style="--stat-color: var(--color-accent)">
+        <div class="stat-label">Lunch Items</div>
+        <div class="stat-value">{{ lunch_count }}</div>
+    </div>
+    
+    <div class="stat-card animate-in animate-delay-4" style="--stat-color: var(--color-secondary)">
+        <div class="stat-label">Dinner Items</div>
+        <div class="stat-value">{{ dinner_count }}</div>
+    </div>
+</div>
+
+<div class="card animate-in">
+    <div class="card-header">
+        <h3 class="card-title">All Food Items</h3>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <select id="mealFilter" 
+                    style="padding: 0.5rem 1rem; border-radius: var(--radius); border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font-family: var(--font-display);">
+                <option value="">All Meal Types</option>
+                <option value="breakfast">Breakfast</option>
+                <option value="lunch">Lunch</option>
+                <option value="dinner">Dinner</option>
+                <option value="snack">Snack</option>
+            </select>
+            <input type="text" id="searchInput" placeholder="Search foods..." 
+                   style="padding: 0.5rem 1rem; border-radius: var(--radius); border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font-family: var(--font-display); min-width: 250px;">
+        </div>
+    </div>
+    
+    <div class="table-container">
+        <table id="foodsTable">
+            <thead>
+                <tr>
+                    <th>Food ID</th>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Meal Type</th>
+                    <th>Calories</th>
+                    <th>Protein</th>
+                    <th>Carbs</th>
+                    <th>Fat</th>
+                    <th>Fiber</th>
+                    <th>Times Used</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for food in foods %}
+                <tr data-meal-type="{{ food.meal_type }}">
+                    <td style="font-family: var(--font-display); color: var(--color-text-dim);">
+                        {{ food.food_id }}
+                    </td>
+                    <td><strong>{{ food.name }}</strong></td>
+                    <td style="color: var(--color-text-dim);">{{ food.category|default:"—" }}</td>
+                    <td>
+                        {% if food.meal_type == 'breakfast' %}
+                            <span class="badge badge-primary">Breakfast</span>
+                        {% elif food.meal_type == 'lunch' %}
+                            <span class="badge badge-success">Lunch</span>
+                        {% elif food.meal_type == 'dinner' %}
+                            <span class="badge badge-accent">Dinner</span>
+                        {% else %}
+                            <span class="badge badge-warning">Snack</span>
+                        {% endif %}
+                    </td>
+                    <td><strong>{{ food.calories_kcal|floatformat:0 }}</strong> kcal</td>
+                    <td>{{ food.protein_g|floatformat:1|default:"—" }}g</td>
+                    <td>{{ food.carbohydrates_g|floatformat:1|default:"—" }}g</td>
+                    <td>{{ food.fat_g|floatformat:1|default:"—" }}g</td>
+                    <td>{{ food.fiber_g|floatformat:1|default:"—" }}g</td>
+                    <td>
+                        <span class="badge {% if food.usage_count > 10 %}badge-success{% elif food.usage_count > 5 %}badge-primary{% else %}badge-secondary{% endif %}">
+                            {{ food.usage_count }}×
+                        </span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" style="text-align: center; padding: 2rem; color: var(--color-text-dim);">
+                        No foods found
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Nutrition Distribution Charts -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; margin-top: 2rem;">
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">Average Macros by Meal Type</h3>
+        </div>
+        <div class="chart-container" style="height: 300px;">
+            <canvas id="macrosChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="card animate-in">
+        <div class="card-header">
+            <h3 class="card-title">Calorie Distribution</h3>
+        </div>
+        <div class="chart-container" style="height: 300px;">
+            <canvas id="calorieDistChart"></canvas>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Search and Filter Functionality
+    const searchInput = document.getElementById('searchInput');
+    const mealFilter = document.getElementById('mealFilter');
+    const table = document.getElementById('foodsTable');
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    
+    function filterTable() {
+        const searchValue = searchInput.value.toLowerCase();
+        const mealValue = mealFilter.value.toLowerCase();
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const text = row.textContent.toLowerCase();
+            const mealType = row.getAttribute('data-meal-type');
+            
+            const matchesSearch = text.indexOf(searchValue) > -1;
+            const matchesMeal = !mealValue || mealType === mealValue;
+            
+            if (matchesSearch && matchesMeal) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    }
+    
+    searchInput.addEventListener('keyup', filterTable);
+    mealFilter.addEventListener('change', filterTable);
+    
+    // Calculate average macros per meal type for chart
+    const foods = Array.from(rows).map(row => {
+        const cells = row.getElementsByTagName('td');
+        if (cells.length === 0) return null;
+        
+        return {
+            mealType: row.getAttribute('data-meal-type'),
+            protein: parseFloat(cells[5].textContent) || 0,
+            carbs: parseFloat(cells[6].textContent) || 0,
+            fat: parseFloat(cells[7].textContent) || 0,
+            calories: parseFloat(cells[4].textContent) || 0
+        };
+    }).filter(f => f !== null);
+    
+    const mealTypes = ['breakfast', 'lunch', 'dinner', 'snack'];
+    const avgMacros = mealTypes.map(type => {
+        const filtered = foods.filter(f => f.mealType === type);
+        const count = filtered.length || 1;
+        return {
+            type,
+            protein: filtered.reduce((sum, f) => sum + f.protein, 0) / count,
+            carbs: filtered.reduce((sum, f) => sum + f.carbs, 0) / count,
+            fat: filtered.reduce((sum, f) => sum + f.fat, 0) / count
+        };
+    });
+    
+    // Macros Chart
+    const macrosCtx = document.getElementById('macrosChart').getContext('2d');
+    new Chart(macrosCtx, {
+        type: 'bar',
+        data: {
+            labels: avgMacros.map(m => m.type.charAt(0).toUpperCase() + m.type.slice(1)),
+            datasets: [
+                {
+                    label: 'Protein (g)',
+                    data: avgMacros.map(m => m.protein.toFixed(1)),
+                    backgroundColor: 'rgba(34, 211, 238, 0.7)',
+                    borderColor: '#22d3ee',
+                    borderWidth: 2
+                },
+                {
+                    label: 'Carbs (g)',
+                    data: avgMacros.map(m => m.carbs.toFixed(1)),
+                    backgroundColor: 'rgba(74, 222, 128, 0.7)',
+                    borderColor: '#4ade80',
+                    borderWidth: 2
+                },
+                {
+                    label: 'Fat (g)',
+                    data: avgMacros.map(m => m.fat.toFixed(1)),
+                    backgroundColor: 'rgba(251, 147, 60, 0.7)',
+                    borderColor: '#fb923c',
+                    borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 15, font: { size: 12 } }
+                },
+                tooltip: {
+                    backgroundColor: '#151b23',
+                    borderColor: '#2d3748',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(45, 55, 72, 0.5)' }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+    
+    // Calorie Distribution Chart
+    const calorieBuckets = {
+        '0-200': 0,
+        '200-400': 0,
+        '400-600': 0,
+        '600-800': 0,
+        '800+': 0
+    };
+    
+    foods.forEach(f => {
+        if (f.calories < 200) calorieBuckets['0-200']++;
+        else if (f.calories < 400) calorieBuckets['200-400']++;
+        else if (f.calories < 600) calorieBuckets['400-600']++;
+        else if (f.calories < 800) calorieBuckets['600-800']++;
+        else calorieBuckets['800+']++;
+    });
+    
+    const calorieDistCtx = document.getElementById('calorieDistChart').getContext('2d');
+    new Chart(calorieDistCtx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(calorieBuckets),
+            datasets: [{
+                data: Object.values(calorieBuckets),
+                backgroundColor: [
+                    '#4ade80',
+                    '#22d3ee',
+                    '#a78bfa',
+                    '#fb923c',
+                    '#f87171'
+                ],
+                borderColor: '#0a0e14',
+                borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 15, font: { size: 12 } }
+                },
+                tooltip: {
+                    backgroundColor: '#151b23',
+                    borderColor: '#2d3748',
+                    borderWidth: 1,
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            return context.label + ': ' + context.parsed + ' foods';
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

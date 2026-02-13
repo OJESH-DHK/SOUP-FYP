@@ -1,0 +1,147 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Users - SOUP Admin{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+    <h1>User Management</h1>
+    <p class="page-subtitle">Manage and monitor all registered users</p>
+</div>
+
+<div class="card animate-in">
+    <div class="card-header">
+        <h3 class="card-title">All Users ({{ users.count }})</h3>
+        <div style="display: flex; gap: 1rem;">
+            <input type="text" id="searchInput" placeholder="Search users..." 
+                   style="padding: 0.5rem 1rem; border-radius: var(--radius); border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font-family: var(--font-display);">
+        </div>
+    </div>
+    
+    <div class="table-container">
+        <table id="usersTable">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Gender</th>
+                    <th>Age</th>
+                    <th>BMI</th>
+                    <th>Goal</th>
+                    <th>Activity</th>
+                    <th>Diet</th>
+                    <th>Daily Cal Goal</th>
+                    <th>Meals Logged</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for profile in users %}
+                <tr>
+                    <td><strong>{{ profile.user.username }}</strong></td>
+                    <td style="color: var(--color-text-dim);">{{ profile.user.email }}</td>
+                    <td>
+                        {% if profile.gender %}
+                        <span class="badge badge-primary">{{ profile.gender }}</span>
+                        {% else %}
+                        <span class="badge" style="opacity: 0.5;">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ profile.age|default:"—" }}</td>
+                    <td>
+                        {% if profile.bmi %}
+                            {% if profile.bmi < 18.5 %}
+                                <span class="badge badge-warning">{{ profile.bmi }}</span>
+                            {% elif profile.bmi < 25 %}
+                                <span class="badge badge-success">{{ profile.bmi }}</span>
+                            {% elif profile.bmi < 30 %}
+                                <span class="badge badge-warning">{{ profile.bmi }}</span>
+                            {% else %}
+                                <span class="badge badge-danger">{{ profile.bmi }}</span>
+                            {% endif %}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if profile.goal == 'loss' %}
+                            <span class="badge badge-danger">Loss</span>
+                        {% elif profile.goal == 'gain' %}
+                            <span class="badge badge-success">Gain</span>
+                        {% else %}
+                            <span class="badge badge-primary">Maintain</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge badge-secondary">{{ profile.activity }}</span></td>
+                    <td>
+                        {% if profile.diet == 'veg' %}
+                            <span class="badge badge-success">Veg</span>
+                        {% else %}
+                            <span class="badge badge-accent">Non-Veg</span>
+                        {% endif %}
+                    </td>
+                    <td><strong>{{ profile.daily_calorie_goal|floatformat:0 }}</strong> kcal</td>
+                    <td><span class="badge badge-primary">{{ profile.interaction_count }}×</span></td>
+                    <td style="color: var(--color-text-dim); font-size: 0.9rem;">
+                        {{ profile.created_at|date:"M d, Y" }}
+                    </td>
+                    <td>
+                        <a href="{% url 'dashboard:user_detail' profile.id %}" class="btn btn-primary" 
+                           style="padding: 0.5rem 1rem; font-size: 0.85rem;">View Details</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="12" style="text-align: center; padding: 2rem; color: var(--color-text-dim);">
+                        No users found
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- User Statistics -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 2rem;">
+    <div class="card animate-in">
+        <h4 style="color: var(--color-primary); margin-bottom: 1rem;">Total Users</h4>
+        <div style="font-size: 2rem; font-weight: 700;">{{ users.count }}</div>
+    </div>
+    
+    <div class="card animate-in">
+        <h4 style="color: var(--color-success); margin-bottom: 1rem;">Registered</h4>
+        <div style="font-size: 2rem; font-weight: 700;">{{ users.count }}</div>
+    </div>
+    
+    <div class="card animate-in">
+        <h4 style="color: var(--color-accent); margin-bottom: 1rem;">Platform Health</h4>
+        <span class="badge badge-success">Operational</span>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Simple table search functionality
+    const searchInput = document.getElementById('searchInput');
+    const table = document.getElementById('usersTable');
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    
+    searchInput.addEventListener('keyup', function() {
+        const filter = this.value.toLowerCase();
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const text = row.textContent.toLowerCase();
+            
+            if (text.indexOf(filter) > -1) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    });
+</script>
+{% endblock %}
