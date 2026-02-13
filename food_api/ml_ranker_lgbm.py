@@ -26,7 +26,7 @@ def rank_foods_for_user(profile, meal_type: str, foods):
     model, meta = get_ranker()
     feature_cols = meta["feature_columns"]
     cat_cols = meta.get("categorical_columns", [])
-    print("used lstm")
+    print("used lgbm")
 
     # Build rows: ONE ROW PER CANDIDATE FOOD
     rows = []
