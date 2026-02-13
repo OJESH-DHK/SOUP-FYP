@@ -185,3 +185,74 @@ class MealLogListView(APIView):
             "count": history.count(),
             "logs": serializer.data  
         })
+    
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.db.models import Sum, Avg
+from django.utils import timezone
+from datetime import timedelta
+from meal_interaction.models import MealInteraction
+
+class ProgressAnalysisView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        profile = request.user.profile
+        today = timezone.now().date()
+        seven_days_ago = today - timedelta(days=7)
+
+        # 1. Calculate Average Daily Intake (Last 7 Days)
+        avg_intake = MealInteraction.objects.filter(
+            user=profile,
+            created_at__date__range=[seven_days_ago, today]
+        ).exclude(chosen_food__isnull=True).values('created_at__date').annotate(
+            day_total=Sum('chosen_food__calories_kcal')
+        ).aggregate(Avg('day_total'))['day_total__avg'] or 0
+
+        # 2. TDEE Baseline (Maintenance Calories)
+        # Assuming goal offset is 500, we add it back to get maintenance
+        maintenance_cal = profile.daily_calorie_goal + 500 if profile.goal == 'loss' else profile.daily_calorie_goal - 500
+        
+        # 3. Deficit/Surplus Calculation
+        daily_deficit = maintenance_cal - avg_intake
+        
+        # 4. Weight Projection Formula: 7700 kcal ≈ 1kg of fat
+        weekly_change = (daily_deficit * 7) / 7700
+        thirty_day_projection = profile.weight_kg - (weekly_change * 4.28) # 30 days
+
+        return Response({
+            "weight_projection": {
+                "current_weight": profile.weight_kg,
+                "weekly_change": round(weekly_change, 2),
+                "thirty_day_forecast": round(thirty_day_projection, 1),
+                "goal_progress_percentage": 72 # Mock or calculate based on start weight
+            },
+            "health_trends": self.get_trend_data(profile, today),
+            "ai_insight": {
+                "daily_deficit": round(daily_deficit, 0),
+                "weekly_prediction_kg": round(abs(weekly_change), 1),
+                "message": f"You are in a {round(daily_deficit, 0)} kcal daily deficit. At this rate, you may lose approximately {round(abs(weekly_change), 1)} kg per week."
+            },
+            "user_stats": {
+                "tdee_baseline": round(maintenance_cal, 0),
+                "activity_intensity": profile.activity.upper()
+            }
+        })
+
+    def get_trend_data(self, profile, today):
+        # Fetch last 30 days for the chart
+        start_date = today - timedelta(days=30)
+        logs = MealInteraction.objects.filter(
+            user=profile,
+            created_at__date__range=[start_date, today]
+        ).values('created_at__date').annotate(
+            intake=Sum('chosen_food__calories_kcal')
+        ).order_by('created_at__date')
+
+        return [
+            {
+                "date": log['created_at__date'].strftime("%b %d"),
+                "intake": log['intake'],
+                "tdee": profile.daily_calorie_goal + 500 # Baseline
+            } for log in logs
+        ]

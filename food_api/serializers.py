@@ -31,3 +31,5 @@ class FoodSummarySerializer(serializers.ModelSerializer):
         model = Food
         fields = ['food_id', 'name', 'calories_kcal', 'protein_g', 'carbohydrates_g', 'fat_g', 'category']
 
+
+
