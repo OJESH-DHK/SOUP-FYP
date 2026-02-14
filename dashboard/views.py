@@ -149,25 +149,27 @@ def user_detail(request, user_id):
     """Detailed view of a single user"""
     profile = UserProfile.objects.select_related('user').get(id=user_id)
     
-    # User's meal history
-    interactions = MealInteraction.objects.filter(
+    # User's meal history - DON'T slice yet, we need to filter first
+    interactions_base = MealInteraction.objects.filter(
         user=profile
     ).select_related('chosen_food').exclude(
         chosen_food__isnull=True
-    ).order_by('-created_at')[:50]
+    ).order_by('-created_at')
     
     # User's statistics
-    total_calories = interactions.aggregate(
+    total_calories = interactions_base.aggregate(
         total=Sum('chosen_food__calories_kcal')
     )['total'] or 0
     
-    meal_type_breakdown = interactions.values('meal_type').annotate(
+    meal_type_breakdown = interactions_base.values('meal_type').annotate(
         count=Count('id')
     )
     
     # Last 7 days activity
     week_ago = timezone.now() - timedelta(days=7)
-    recent_interactions = interactions.filter(created_at__gte=week_ago)
+    
+    # Now we can safely slice for display
+    interactions = interactions_base[:50]
     
     daily_calories = []
     for i in range(7):
