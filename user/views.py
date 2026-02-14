@@ -12,6 +12,30 @@ from django.contrib.auth import authenticate
 from django.db.models import Q
 from django.contrib.auth.models import User
 from rest_framework import exceptions
+from rest_framework import generics, status
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from .serializers import ChangePasswordSerializer
+
+class ChangePasswordView(generics.GenericAPIView):
+    serializer_class = ChangePasswordSerializer
+    permission_classes = (IsAuthenticated,)
+
+    # Rename 'update' to 'post' to allow POST requests
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+
+        if serializer.is_valid():
+            # Set the new password securely
+            self.request.user.set_password(serializer.validated_data['new_password'])
+            self.request.user.save()
+            
+            return Response({
+                "status": "success",
+                "message": "Password updated successfully"
+            }, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     # We change the name to 'login_id' to show it accepts both
